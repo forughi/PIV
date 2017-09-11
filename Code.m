@@ -66,6 +66,7 @@ for j=1:jm % ID of I.W. in j
             end
         end
         
+        R(isnan(R)==1)=-1; %Removing NaN(s)
         %Finding Location of maximum R
         [maxR,Y]=max(max(R));   %Y:location of maximum R
         [maxR,X]=max(max(R'));  %X:location of maximum R
