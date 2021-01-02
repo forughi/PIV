@@ -162,7 +162,7 @@ plt.show()
 
 
 fig, ax = plt.subplots(figsize=(8,8*ia/ja), dpi=300)
-plt.contourf(X[0],np.transpose(Y)[0],rij,cmap='jet',levels=np.arange(rij.min(),rij.max()+0.1,0.01))
+plt.contourf(X[0],np.transpose(Y)[0],rij,cmap='jet',levels=np.arange(rij.min(),min(rij.max()+0.1,1.0),0.01))
 plt.colorbar(label='R')
 plt.show()
 
