@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-
 Project: Particle Image Velocimetry (PIV) code!
-@author: A. F. Forughi (Aug., 2020)
-
+@author: A. F. Forughi (Aug. 2020, Last update: Jan. 2021)
 """
 
 # %% Libraries:
@@ -11,9 +9,11 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from tqdm import tqdm # pip install tqdm
+from numba import jit # pip install numba
 
 # %% Functions:
-def corr2(c1,c2): # Cross-correlation (not computationally efficient)
+@jit(nopython=True)
+def corr2(c1,c2): # Cross-correlation
     c1-=c1.mean()
     c2-=c2.mean()
     c12=(c1*c1).sum()*(c2*c2).sum()
@@ -21,25 +21,47 @@ def corr2(c1,c2): # Cross-correlation (not computationally efficient)
         return (c1*c2).sum()/np.sqrt(c12)
     return -1.0
 
-def fixer(vecx,vecy,vec,rij,r_limit,i_fix): # Fixing the irregular vectors
-    i_disorder=0
-    for ii in range(i_fix): #Correction Cycle
+def fixer(vecx,vecy,vec,rij,r_limit,i_fix): # Fixing the irregular vectors (Normalized Median Test and low Correlation coeff.)
+    fluc=np.zeros(vec.shape)
+    for j in range(1,vec.shape[1]-1):
+        for i in range(1,vec.shape[0]-1):
+            neigh_x=np.array([])
+            neigh_y=np.array([])
+            for ii in range(-1,2):
+                for jj in range(-1,2):
+                    if ii==0 and jj==0: continue
+                    neigh_x=np.append(neigh_x,vecx[i+ii,j+jj]) # Neighbourhood components
+                    neigh_y=np.append(neigh_y,vecy[i+ii,j+jj])
+            res_x=neigh_x-np.median(neigh_x) # Residual
+            res_y=neigh_y-np.median(neigh_y)
+            
+            res_s_x=np.abs(vecx[i,j]-np.median(neigh_x))/(np.median(np.abs(res_x))+0.1) # Normalized Residual (Epsilon=0.1)
+            res_s_y=np.abs(vecy[i,j]-np.median(neigh_y))/(np.median(np.abs(res_y))+0.1)
+            
+            fluc[i,j]=np.sqrt(res_s_x*res_s_x+res_s_y*res_s_y) # Normalized Fluctuations
+    # plt.contourf(fluc,levels=np.arange(2,200,0.1))#,vmin=0.0,vmax=2 # To see the outliers
+    # plt.colorbar(label='Normalized Fluctuation')
+    
+    for ii in range(i_fix): # Correction Cycle for patches of bad data
+        i_disorder=0
+        vec_diff=0.0
         for j in range(1,vec.shape[1]-1):
             for i in range(1,vec.shape[0]-1):
-                if ((((vecx[i+1,j]*vecx[i-1,j])>0.) and ((vecx[i+1,j]*vecx[i,j])<0.)) or (rij[i,j]<r_limit)):
-                    vecx[i,j]=0.25*(vecx[i+1,j]+vecx[i-1,j]+vecx[i,j+1]+vecx[i,j-1])
-                    vecy[i,j]=0.25*(vecy[i+1,j]+vecy[i-1,j]+vecy[i,j+1]+vecy[i,j-1])
+                if fluc[i,j]>2.0 or (rij[i,j]<r_limit): # Fluctuation threshold = 2.0
                     i_disorder+=1
-
-                if (((vecy[i,j+1]*vecy[i,j-1])>0.) and ((vecy[i,j+1]*vecy[i,j])<0.) or (rij[i,j]<r_limit)):
-                    vecx[i,j]=0.25*(vecx[i+1,j]+vecx[i-1,j]+vecx[i,j+1]+vecx[i,j-1])
+                    vecx[i,j]=0.25*(vecx[i+1,j]+vecx[i-1,j]+vecx[i,j+1]+vecx[i,j-1]) # Bilinear Fix
                     vecy[i,j]=0.25*(vecy[i+1,j]+vecy[i-1,j]+vecy[i,j+1]+vecy[i,j-1])
-                    i_disorder+=1
+                    vec_diff+=(vec[i,j]-np.sqrt(vecx[i,j]*vecx[i,j]+vecy[i,j]*vecy[i,j]))**2.0
+                    vec[i,j]=np.sqrt(vecx[i,j]*vecx[i,j]+vecy[i,j]*vecy[i,j])
+                    
+        if i_disorder==0 or vec.mean()==0.0: break # No need for correction
+        correction_residual=vec_diff/(i_disorder*np.abs(vec.mean()))
+        if correction_residual<1.0e-20: break # Converged!
+    if ii==i_fix-1: print("Maximum correction iteration was reached!")
+    return vecx,vecy,vec,i_disorder,vec_diff
 
-                vec[i,j]=np.sqrt(vecx[i,j]*vecx[i,j]+vecy[i,j]*vecy[i,j])
-    return vecx,vecy,vec,i_disorder
 
-def subpix(R,axis): # Subpixle second order resolution offset
+def subpix(R,axis): # Subpixle resolution (parabolic-Gaussian fit)
     dum=np.floor(np.argmax(R)/R.shape[0])    
     R_x=int(dum) #vecy
     R_y=int(np.argmax(R)-dum*R.shape[0])  #vecx
@@ -52,6 +74,10 @@ def subpix(R,axis): # Subpixle second order resolution offset
         else:          #For Vecx
             r_e=R[R_x,R_y+1]
             r_w=R[R_x,R_y-1]
+        if r_e>0.0 and r_w>0.0 and r>0.0: # Gaussian if possible (resolves pick locking)
+            r_e=np.log(r_e)
+            r_w=np.log(r_w)
+            r=np.log(r)
         if (r_e+r_w-2*r)!=0.0:
             if np.abs((r_w-r_e)/(2.0*(r_e+r_w-2*r)))<1.0 and np.abs(r_e+1)>0.01 and np.abs(r_w+1)>0.01:
                 return (r_w-r_e)/(2.0*(r_e+r_w-2*r))
@@ -64,8 +90,8 @@ def subpix(R,axis): # Subpixle second order resolution offset
 img_1 = (np.flip(cv2.imread('a1.png', 0),0)).astype('float32') # Read Grayscale
 img_2 = (np.flip(cv2.imread('a2.png', 0),0)).astype('float32')
 
-i_fix=00     # Number of correction cycles
-r_limit=0.4   # minimum acceptable correlation coefficient
+i_fix=500     # Number of maximum correction cycles
+r_limit=0.5   # minimum acceptable correlation coefficient
 l_scale=1.0   # spatial scale [m/pixel]
 t_scale=1.0   # time step = 1/frame_rate [s/frame]
 
@@ -114,19 +140,20 @@ for j in tqdm(range(jm)):
         else:
             vecx[i,j]=0.0;vecy[i,j]=0.0;vec[i,j]=0.0
         
-# %% Post-processing:
-vecx,vecy,vec,i_disorder=fixer(vecx,vecy,vec,rij,r_limit,i_fix) # Corrections
+# %% Corrections:
+vecx,vecy,vec,i_disorder,dum=fixer(vecx,vecy,vec,rij,r_limit,i_fix)
 
+# %% Applying the scales:
 X, Y = np.meshgrid(np.arange(0.5*iw*l_scale, 0.5*iw*(jm+1)*l_scale, 0.5*iw*l_scale), 
                    np.arange(0.5*iw*l_scale, 0.5*iw*(im+1)*l_scale, 0.5*iw*l_scale))
 
 vecx*=(l_scale/t_scale);vecy*=(l_scale/t_scale);vec*=(l_scale/t_scale);
 
 
-# %% Exporting:
+# %% Exporting Data:
 
 np.savez('results.npz', vecx=vecx, vecy=vecy, vec=vec, rij=rij)
-# res=np.load('results.npz'); vecx=res['vecx']; vecy=res['vecy']; vec=res['vec']; rij=res['rij'];
+# res=np.load('results.npz'); vecx=res['vecx']; vecy=res['vecy']; vec=res['vec']; rij=res['rij']; # Load saved data
 
 fig, ax = plt.subplots(figsize=(8,8*ia/ja), dpi=300)
 q = ax.quiver(X, Y, vecx, vecy,units='width')
@@ -142,6 +169,3 @@ fig, ax = plt.subplots(figsize=(8,8*ia/ja), dpi=300)
 plt.streamplot(X, Y, vecx, vecy,density=3,linewidth=0.8,color=vec)
 plt.colorbar(label='Velocity')
 plt.show()
-
-
-
