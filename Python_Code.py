@@ -42,6 +42,7 @@ def fixer(vecx,vecy,vec,rij,r_limit,i_fix): # Fixing the irregular vectors (Norm
     # plt.contourf(fluc,levels=np.arange(2,200,0.1))#,vmin=0.0,vmax=2 # To see the outliers
     # plt.colorbar(label='Normalized Fluctuation')
     
+    i_disorder=0
     for ii in range(i_fix): # Correction Cycle for patches of bad data
         i_disorder=0
         vec_diff=0.0
@@ -58,7 +59,7 @@ def fixer(vecx,vecy,vec,rij,r_limit,i_fix): # Fixing the irregular vectors (Norm
         correction_residual=vec_diff/(i_disorder*np.abs(vec.mean()))
         if correction_residual<1.0e-20: break # Converged!
     if ii==i_fix-1: print("Maximum correction iteration was reached!")
-    return vecx,vecy,vec,i_disorder,vec_diff
+    return vecx,vecy,vec,i_disorder,ii
 
 
 def subpix(R,axis): # Subpixle resolution (parabolic-Gaussian fit)
@@ -141,7 +142,7 @@ for j in tqdm(range(jm)):
             vecx[i,j]=0.0;vecy[i,j]=0.0;vec[i,j]=0.0
         
 # %% Corrections:
-vecx,vecy,vec,i_disorder,dum=fixer(vecx,vecy,vec,rij,r_limit,i_fix)
+vecx,vecy,vec,i_disorder,i_cor_done=fixer(vecx,vecy,vec,rij,r_limit,i_fix)
 
 # %% Applying the scales:
 X, Y = np.meshgrid(np.arange(0.5*iw*l_scale, 0.5*iw*(jm+1)*l_scale, 0.5*iw*l_scale), 
