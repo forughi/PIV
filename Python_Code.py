@@ -109,7 +109,7 @@ jm=int(2*np.floor((ja-1-iw)/(iw-1))) # Number of I.W.s in y direction
 
 vecx=np.zeros((im,jm)) # x-Displacement
 vecy=np.zeros((im,jm)) # y-Displacement
-vec=np.zeros((im,jm)) # Magnification
+vec=np.zeros((im,jm)) # Magnitude
 rij=np.zeros((im,jm)) # Correlation coeff.
 
 for j in tqdm(range(jm)):
@@ -145,8 +145,10 @@ for j in tqdm(range(jm)):
 vecx,vecy,vec,i_disorder,i_cor_done=fixer(vecx,vecy,vec,rij,r_limit,i_fix)
 
 # %% Applying the scales:
-X, Y = np.meshgrid(np.arange(0.5*iw*l_scale, 0.5*iw*(jm+1)*l_scale, 0.5*iw*l_scale), 
-                   np.arange(0.5*iw*l_scale, 0.5*iw*(im+1)*l_scale, 0.5*iw*l_scale))
+X, Y = np.meshgrid(np.arange(0.5*iw, 0.5*iw*(jm+1), 0.5*iw), 
+                   np.arange(0.5*iw, 0.5*iw*(im+1), 0.5*iw))
+X*=l_scale
+Y*=l_scale
 
 vecx*=(l_scale/t_scale);vecy*=(l_scale/t_scale);vec*=(l_scale/t_scale);
 
