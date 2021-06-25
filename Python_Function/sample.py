@@ -34,7 +34,7 @@ t_scale=1.0   # time step = 1/frame_rate [s/frame] ; 1 means no time scaling
     
 Arguments: 
     first image as a Numpy matrix (img_1)
-    first image as a Numpy matrix (img_2)
+    second image as a Numpy matrix (img_2)
     size of the introgation window (IW)
     Size of the search window (SW)
     Minimum acceptable correlation coefficient (r_limit)
