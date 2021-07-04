@@ -9,7 +9,7 @@ Project: Particle Image Velocimetry (PIV) code!
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from piv_lib import piv # Importing the PIV function
+from piv_lib import piv # Importing the PIV function from piv_lib.py
 
 
 # %% Loading the images:
