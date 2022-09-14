@@ -28,6 +28,7 @@ i_fix=500     # Number of maximum correction cycles ; 0 means no correction
 l_scale=1.0   # spatial scale [m/pixel] ; 1 means no size scaling
 t_scale=1.0   # time step = 1/frame_rate [s/frame] ; 1 means no time scaling
 
+cores=-1 # Number of parallel processes: 1 = no parallel processing ; 2 and above = number of parallel processes ; -1 = maximum
 
 # %% Runing PIV function:
 """ *** Here are the function's arguments and returned values ***
@@ -41,6 +42,7 @@ Arguments:
     Number of maximum correction cycles (i_fix)
     Spatial scale [m/pixel]
     Time step = 1/frame_rate [s/frame]
+    cores = Number of parallel processes
     
 Returned values:
     X Position of the vectors (X)
@@ -51,7 +53,7 @@ Returned values:
     Correlation coefficient of each intoregation window (rij)
 """
 
-X, Y, vecx, vecy, vec, rij = piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale)
+X, Y, vecx, vecy, vec, rij = piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale,cores)
 
 
 # %% Exporting Data in as a Numpy file:
