@@ -13,12 +13,12 @@ from piv_lib import piv # Importing the PIV function from piv_lib.py
 
 
 # %% Loading the images:
-img_1 = (np.flip(cv2.imread('image_01.tif', 0),0)).astype('float32') # Read Grayscale
-img_2 = (np.flip(cv2.imread('image_02.tif', 0),0)).astype('float32')
+img_1 = (np.flip(cv2.imread('a1.png', 0),0)).astype('float32') # Read Grayscale
+img_2 = (np.flip(cv2.imread('a2.png', 0),0)).astype('float32')
 
 
 # %% Setting the PIV parameters:
-iw=21 # Interrodation Windows Sizes (pixel)
+iw=51 # Interrodation Windows Sizes (pixel)
 sw=81 # Search Windows Sizes (sw > iw) (pixel)  
 
 r_limit=0.5   # minimum acceptable correlation coefficient. If you're not sure start with 0.6
