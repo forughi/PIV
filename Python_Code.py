@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 Project: Particle Image Velocimetry (PIV) code!
-@author: A. F. Forughi (Aug. 2020, Last update: Jan. 2021)
+@author: A. F. Forughi (Aug. 2020, Last update: Sept. 2022)
 """
 
 # %% Libraries:
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from tqdm import tqdm # pip install tqdm
-from numba import jit # pip install numba
+from tqdm import tqdm 
+from numba import jit 
+from joblib import Parallel, delayed
 
 # %% Functions:
 @jit(nopython=True)
@@ -99,6 +100,8 @@ t_scale=1.0   # time step = 1/frame_rate [s/frame]
 iw=51 # Interrodation Windows Sizes (pixel)
 sw=81 # Search Windows Sizes (sw > iw) (pixel)
 
+cores=-1 # Number of parallel jobs: 1 = no parallel processing ; 2 and above = number of parallel processes ; -1 = maximum
+
 # %% Search Algorithm:
 ia,ja = img_1.shape
 iw=int(2*np.floor((iw+1)/2)-1) # Even->Odd
@@ -112,7 +115,12 @@ vecy=np.zeros((im,jm)) # y-Displacement
 vec=np.zeros((im,jm)) # Magnitude
 rij=np.zeros((im,jm)) # Correlation coeff.
 
-for j in tqdm(range(jm)):
+def jay_walker(j):
+    ivecx=np.zeros(im) # x-Displacement
+    ivecy=np.zeros(im) # y-Displacement
+    ivec=np.zeros(im)  # Magnitude
+    irij=np.zeros(im)  # Correlation coeff.
+    
     j_d=int(j*(iw-1)/2) # Bottom bound
     j_u=j_d+iw          # Top bound
     sw_d=max(0,j_d-margin) # First Row
@@ -132,14 +140,20 @@ for j in tqdm(range(jm)):
             for ii in range(sw_l,sw_r+1-iw):
                 c2=np.array(img_2[ii:ii+iw,jj:jj+iw]) # IW from 2nd image
                 R[ii-sw_l,jj-sw_d]=corr2(c1,c2)
-        rij[i,j]=R.max()
-        if rij[i,j]>=r_limit:
+        irij[i]=R.max()
+        if irij[i]>=r_limit:
             dum=np.floor(np.argmax(R)/R.shape[0])
-            vecy[i,j]=dum-(margin-sw_l_diff)+subpix(R,'y')
-            vecx[i,j]=np.argmax(R)-dum*R.shape[0]-(margin-sw_d_diff)+subpix(R,'x')
-            vec[i,j]=np.sqrt(vecx[i,j]*vecx[i,j]+vecy[i,j]*vecy[i,j])
+            ivecy[i]=dum-(margin-sw_l_diff)+subpix(R,'y')
+            ivecx[i]=np.argmax(R)-dum*R.shape[0]-(margin-sw_d_diff)+subpix(R,'x')
+            ivec[i]=np.sqrt(ivecx[i]*ivecx[i]+ivecy[i]*ivecy[i])
         else:
-            vecx[i,j]=0.0;vecy[i,j]=0.0;vec[i,j]=0.0
+            ivecx[i]=0.0;ivecy[i]=0.0;ivec[i]=0.0
+    return j,ivec, ivecx, ivecy, irij
+            
+
+reconst = Parallel(n_jobs=cores)(delayed(jay_walker)(j) for j in tqdm(range(jm)))
+for reoncs_row in reconst:
+    vec[:,reoncs_row[0]], vecx[:,reoncs_row[0]], vecy[:,reoncs_row[0]], rij[:,reoncs_row[0]] = reoncs_row[1],reoncs_row[2],reoncs_row[3],reoncs_row[4]
         
 # %% Corrections:
 vecx,vecy,vec,i_disorder,i_cor_done=fixer(vecx,vecy,vec,rij,r_limit,i_fix)
