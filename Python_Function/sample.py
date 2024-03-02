@@ -66,7 +66,8 @@ np.savez('results.npz', X=X, Y=Y, vecx=vecx, vecy=vecy, vec=vec, rij=rij)
     
 ia,ja = img_1.shape
 fig, ax = plt.subplots(figsize=(8,8*ia/ja), dpi=300)
-q = ax.quiver(X, Y, vecx, vecy,units='width')
+plt.imshow(img_1, cmap='gray', vmin=0, vmax=255,origin='lower')     # Comment to not superimpose on image
+q = ax.quiver(X, Y, vecx, vecy,units='width',color="red")
 plt.show()
 
 
