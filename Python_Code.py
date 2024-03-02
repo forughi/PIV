@@ -173,7 +173,8 @@ np.savez('results.npz', vecx=vecx, vecy=vecy, vec=vec, rij=rij)
 # res=np.load('results.npz'); vecx=res['vecx']; vecy=res['vecy']; vec=res['vec']; rij=res['rij']; # Load saved data
 
 fig, ax = plt.subplots(figsize=(8,8*ia/ja), dpi=300)
-q = ax.quiver(X, Y, vecx, vecy,units='width')
+plt.imshow(img_1, cmap='gray', vmin=0, vmax=255,origin='lower')     # Comment to not superimpose on image
+q = ax.quiver(X, Y, vecx, vecy,units='width',color="red")
 plt.show()
 
 
