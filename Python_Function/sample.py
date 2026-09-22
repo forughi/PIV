@@ -2,7 +2,7 @@
 """
 Project: Particle Image Velocimetry (PIV) code!
          Sample code to call the function!
-@author: A. F. Forughi (Aug. 2020, Last update: Jun. 2021)
+@author: A. F. Forughi (Aug. 2020, Last update: Sept. 2026)
 """
 
 # %% Libraries:
@@ -30,6 +30,8 @@ t_scale=1.0   # time step = 1/frame_rate [s/frame] ; 1 means no time scaling
 
 cores=-1 # Number of parallel processes: 1 = no parallel processing ; 2 and above = number of parallel processes ; -1 = maximum
 
+use_fft=True # True = FFT-based normalized cross-correlation (faster for large windows) ; False = original direct method
+
 # %% Runing PIV function:
 """ *** Here are the function's arguments and returned values ***
     
@@ -43,6 +45,7 @@ Arguments:
     Spatial scale [m/pixel]
     Time step = 1/frame_rate [s/frame]
     cores = Number of parallel processes
+    use_fft = True for FFT-based cross-correlation, False for the original direct method
     
 Returned values:
     X Position of the vectors (X)
@@ -53,7 +56,7 @@ Returned values:
     Correlation coefficient of each intoregation window (rij)
 """
 
-X, Y, vecx, vecy, vec, rij = piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale,cores)
+X, Y, vecx, vecy, vec, rij = piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale,cores,use_fft)
 
 
 # %% Exporting Data in as a Numpy file:
