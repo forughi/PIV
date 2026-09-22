@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Project: Particle Image Velocimetry (PIV) code -> function!
-@author: A. F. Forughi (Aug. 2020, Last update: Sept. 2022)
+@author: A. F. Forughi (Aug. 2020, Last update: Sept. 2026)
 """
 
 # %% Libraries:
@@ -19,6 +19,24 @@ def corr2(c1,c2): # Cross-correlation
     if c12>0.0:
         return (c1*c2).sum()/np.sqrt(c12)
     return -1.0
+
+def corr_map_fft(c1,patch): # Normalized cross-correlation of c1 over all positions of patch, via FFT
+    th,tw=c1.shape
+    c1z=c1.astype('float64')-c1.mean()
+    shp=(patch.shape[0]+th-1,patch.shape[1]+tw-1) # Zero-padded size for linear correlation
+    full=np.real(np.fft.ifft2(np.fft.fft2(patch.astype('float64'),shp)*np.fft.fft2(c1z[::-1,::-1],shp)))
+    num=full[th-1:patch.shape[0],tw-1:patch.shape[1]] # num[a,b] = sum(patch[a:a+th,b:b+tw]*c1z) ; sum(c1z)=0, so this equals the mean-subtracted numerator
+    S1=np.zeros((patch.shape[0]+1,patch.shape[1]+1)) # Summed-area table of patch
+    S1[1:,1:]=np.cumsum(np.cumsum(patch.astype('float64'),0),1)
+    S2=np.zeros_like(S1) # Summed-area table of patch squared
+    S2[1:,1:]=np.cumsum(np.cumsum(patch.astype('float64')*patch.astype('float64'),0),1)
+    a=np.arange(patch.shape[0]-th+1)[:,None]
+    b=np.arange(patch.shape[1]-tw+1)[None,:]
+    sm=S1[a+th,b+tw]-S1[a,b+tw]-S1[a+th,b]+S1[a,b] # Local sums
+    sq=S2[a+th,b+tw]-S2[a,b+tw]-S2[a+th,b]+S2[a,b] # Local sums of squares
+    var2=sq-sm*sm/(th*tw) # Local variances (unnormalized)
+    den=np.sqrt(np.maximum(var2,0.0)*(c1z*c1z).sum())
+    return np.where(den>0.0,num/np.where(den>0.0,den,1.0),-1.0)
 
 def fixer(vecx,vecy,vec,rij,r_limit,i_fix): # Fixing the irregular vectors (Normalized Median Test and low Correlation coeff.)
     fluc=np.zeros(vec.shape)
@@ -86,9 +104,10 @@ def subpix(R,axis): # Subpixle resolution (parabolic-Gaussian fit)
 
 
 #  Search Algorithm:
-def piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale,cores):
+def piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale,cores,use_fft=False):
     
     # i_fix,l_scale,t_scale
+    # use_fft: True = FFT-based normalized cross-correlation (faster for large windows) ; False = original direct method
     
     ia,ja = img_1.shape
     iw=int(2*np.floor((iw+1)/2)-1) # Even->Odd
@@ -123,10 +142,14 @@ def piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale,cores):
             
             R=np.zeros((sw-iw+1,sw-iw+1))-1 # Correlation Matrix
             c1=np.array(img_1[i_l:i_l+iw,j_d:j_d+iw]) # IW from 1st image
-            for jj in range(sw_d,sw_u+1-iw):
-                for ii in range(sw_l,sw_r+1-iw):
-                    c2=np.array(img_2[ii:ii+iw,jj:jj+iw]) # IW from 2nd image
-                    R[ii-sw_l,jj-sw_d]=corr2(c1,c2)
+            if use_fft and sw_l==i_l-margin and sw_d==j_d-margin and sw_r==i_r+margin and sw_u==j_u+margin:
+                # Full-size search window: compute the whole correlation matrix at once via FFT
+                R=corr_map_fft(c1,np.array(img_2[sw_l:sw_l+sw,sw_d:sw_d+sw]))
+            else:
+                for jj in range(sw_d,sw_u+1-iw):
+                    for ii in range(sw_l,sw_r+1-iw):
+                        c2=np.array(img_2[ii:ii+iw,jj:jj+iw]) # IW from 2nd image
+                        R[ii-sw_l,jj-sw_d]=corr2(c1,c2)
             irij[i]=R.max()
             if irij[i]>=r_limit:
                 dum=np.floor(np.argmax(R)/R.shape[0])
@@ -137,7 +160,6 @@ def piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale,cores):
                 ivecx[i]=0.0;ivecy[i]=0.0;ivec[i]=0.0
         return j,ivec, ivecx, ivecy, irij
                 
-    
     reconst = Parallel(n_jobs=cores)(delayed(jay_walker)(j) for j in tqdm(range(jm)))
     for reoncs_row in reconst:
         vec[:,reoncs_row[0]], vecx[:,reoncs_row[0]], vecy[:,reoncs_row[0]], rij[:,reoncs_row[0]] = reoncs_row[1],reoncs_row[2],reoncs_row[3],reoncs_row[4]
@@ -147,8 +169,8 @@ def piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale,cores):
     vecx,vecy,vec,i_disorder,i_cor_done=fixer(vecx,vecy,vec,rij,r_limit,i_fix)
     
     # %% Applying the scales:
-    X, Y = np.meshgrid(np.arange(0.5*iw, 0.5*iw*(jm+1), 0.5*iw), 
-                       np.arange(0.5*iw, 0.5*iw*(im+1), 0.5*iw))
+    X, Y = np.meshgrid(np.arange(iw/2.0, int(jm*(iw-1)/2)+iw/2,int((iw-1)/2)), 
+                       np.arange(iw/2.0, int(im*(iw-1)/2)+iw/2,int((iw-1)/2)))
     X*=l_scale
     Y*=l_scale
     
