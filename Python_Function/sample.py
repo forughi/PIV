@@ -21,7 +21,7 @@ img_2 = (np.flip(cv2.imread('a2.png', 0),0)).astype('float32')
 iw=51 # Interrodation Windows Sizes (pixel)
 sw=81 # Search Windows Sizes (sw > iw) (pixel)  
 
-r_limit=0.5   # minimum acceptable correlation coefficient. If you're not sure start with 0.6
+r_limit=0.5   # minimum acceptable correlation coefficient. If you're not sure, start with 0.6
 
 i_fix=500     # Number of maximum correction cycles ; 0 means no correction
 
@@ -32,13 +32,13 @@ cores=-1 # Number of parallel processes: 1 = no parallel processing ; 2 and abov
 
 use_fft=True # True = FFT-based normalized cross-correlation (faster for large windows) ; False = original direct method
 
-# %% Runing PIV function:
+# %% Running PIV function:
 """ *** Here are the function's arguments and returned values ***
     
 Arguments: 
-    first image as a Numpy matrix (img_1)
-    second image as a Numpy matrix (img_2)
-    size of the introgation window (IW)
+    first image as a NumPy matrix (img_1)
+    second image as a NumPy matrix (img_2)
+    Size of the interrogation window (IW)
     Size of the search window (SW)
     Minimum acceptable correlation coefficient (r_limit)
     Number of maximum correction cycles (i_fix)
@@ -53,13 +53,13 @@ Returned values:
     X-velocity components (vecx)
     Y-velocity components (vecy)
     Velocity vector size (vec)
-    Correlation coefficient of each intoregation window (rij)
+    Correlation coefficient of each integration window (rij)
 """
 
 X, Y, vecx, vecy, vec, rij = piv(img_1,img_2,iw,sw,r_limit,i_fix,l_scale,t_scale,cores,use_fft)
 
 
-# %% Exporting Data in as a Numpy file:
+# %% Exporting Data as a NumPy file:
 np.savez('results.npz', X=X, Y=Y, vecx=vecx, vecy=vecy, vec=vec, rij=rij)
 
 # res=np.load('results.npz'); X=res['X']; Y=res['Y']; vecx=res['vecx']; vecy=res['vecy']; vec=res['vec']; rij=res['rij']; # Load saved data
